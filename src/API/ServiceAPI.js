@@ -3,7 +3,7 @@ import md5 from "md5";
 
 
 export default class ServiceAPI {
-	static apiUrl = 'http://api.valantis.store:40000/';
+	static apiUrl = 'https://api.valantis.store:41000/';
 	static password = 'Valantis';
 
 	static generateXAuth() {
