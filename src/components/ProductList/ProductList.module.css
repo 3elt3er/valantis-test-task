@@ -1,0 +1,19 @@
+.gridLayout {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+    text-align: center;
+    gap: 10px;
+}
+
+.filter {
+    display: flex;
+    justify-content: center;
+    margin: 0 auto;
+}
+
+.buttonsPagination {
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}

@@ -1,0 +1,9 @@
+.item {
+    border: 2px solid green;
+    border-radius: 1em;
+    padding: 1vh;
+}
+
+.row {
+    font-size: 18px;
+}
