@@ -118,7 +118,7 @@ const ProductList = () => {
             </div>
             <h1>Текущая страница: {currentPage}</h1>
 
-            {!isProductsLoading && (<>
+            {!isProductsLoading && !filter.sortType && (<>
                 <div className={classes.buttonsPagination}>
                     <MyButton onClick={handlePrevPage} disabled={currentPage === 1}>Предыдущая страница</MyButton>
                     <MyButton onClick={handleNextPage}>Следующая страница</MyButton>
