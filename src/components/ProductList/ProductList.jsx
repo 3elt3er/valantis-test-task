@@ -1,23 +1,29 @@
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import ProductItem from "../ProductItem/ProductItem.jsx";
 import ServiceAPI from "../../API/ServiceAPI.js";
 import classes from "./ProductList.module.css";
 import ProductFilter from "../ProductFilter/ProductFilter.jsx";
 import MyButton from "../UI/button/MyButton.jsx";
+import MyInput from "../UI/input/MyInput.jsx";
 
 const ProductList = () => {
     const [products, setProducts] = useState([]);
-    const [isProductsLoading, setIsProductsLoading] = useState(false)
+    const [isLoading, setIsLoading] = useState(false)
     const [currentPage, setCurrentPage] = useState(1)
     const [inputValue, setInputValue] = useState('')
     const [filter, setFilter] = useState({sortType: '', value: ''})
 
-    const limitPerPage = 50;
+    const LIMIT_PER_PAGE = 50;
+    const MAX_RETRIES = 10;
+
+    const filterUniqueItems = (items) => {
+        return items.filter((item, index, self) => self.findIndex(t => t.id === item.id) === index);
+    };
 
     useEffect(() => {
-        const fetchData = async () => {
+        const fetchData = async (retries = 0) => {
             try {
-                setIsProductsLoading(true);
+                setIsLoading(true);
                 let offset;
                 let limit;
 
@@ -25,14 +31,13 @@ const ProductList = () => {
                     offset = 0;
                     limit = 47;
                 } else {
-                    offset = (currentPage - 2) * limitPerPage + 47;
-                    limit = limitPerPage;
+                    offset = (currentPage - 2) * LIMIT_PER_PAGE + 47;
+                    limit = LIMIT_PER_PAGE;
                 }
 
                 const ids = await ServiceAPI.getIds(offset, limit);
                 const items = await ServiceAPI.getItems(ids);
-
-                const uniqueItems = items.filter((item, index, self) => self.findIndex(t => t.id === item.id) === index);
+                const uniqueItems = filterUniqueItems(items);
 
                 if (uniqueItems.length < 50) {
                     const additionalOffset = (50 - uniqueItems.length) * (currentPage - 1);
@@ -43,41 +48,53 @@ const ProductList = () => {
                 } else {
                     setProducts(uniqueItems);
                 }
-                setIsProductsLoading(false);
+                setIsLoading(false);
             } catch (error) {
                 console.error('Ошибка при получении товаров:', error);
-                fetchData();
-                console.log('Отправка запроса повторно...')
+                if (retries < MAX_RETRIES) {
+                    console.log(`Попытка №${retries + 1}...`);
+                    fetchData(retries + 1);
+                } else {
+                    console.error('Достигнуто максимальное количество попыток');
+                    setIsLoading(false);
+                }
             }
         };
         fetchData();
     }, [currentPage]);
 
 
-    const fetchDataFiltered = async (field, value) => {
+    const fetchDataFiltered = async (field, value, retries = 0) => {
         try {
             if (field) {
-                setIsProductsLoading(true);
+                setIsLoading(true);
                 let numericValue;
                 if (field === 'price') {
                     numericValue = Number(value)
                 } else {
                     numericValue = String(value);
                 }
-                console.log(typeof numericValue)
+
                 const ids = await ServiceAPI.filterProducts(field, numericValue);
                 const items = await ServiceAPI.getItems(ids);
-                const uniqueItems = items.filter((item, index, self) => self.findIndex(t => t.id === item.id) === index);
+                const uniqueItems = filterUniqueItems(items);
+
                 setProducts(uniqueItems);
-                setIsProductsLoading(false);
+                setIsLoading(false);
+                setInputValue('1');
             } else {
                 alert('Выберите метод сортировки')
             }
 
         } catch (error) {
             console.error('Ошибка при получении товаров:', error);
-            fetchDataFiltered(field, value);
-            console.log('Отправка запроса повторно...')
+            if (retries < MAX_RETRIES) {
+                console.log(`Попытка №${retries + 1}...`);
+                fetchDataFiltered(field, value, retries + 1);
+            } else {
+                console.error('Достигнуто максимальное количество попыток');
+                setIsLoading(false);
+            }
         }
     };
 
@@ -89,7 +106,6 @@ const ProductList = () => {
     const handleNextPage = () => {
         setCurrentPage(currentPage + 1)
         setInputValue(currentPage + 1)
-        console.log(typeof filter.value)
     }
 
     const handleChange = (event) => {
@@ -100,15 +116,22 @@ const ProductList = () => {
             }, 2000)
         }
     }
+
+    const memoizedProductFilter = useMemo(() => (
+        <ProductFilter filter={filter} setFilter={setFilter} />
+    ), [filter, setFilter]);
+
+    const memoizedButton = useMemo(() => (
+        <MyButton onClick={() => fetchDataFiltered(filter.sortType, filter.value)}>Отфильтровать</MyButton>
+        ), [filter]);
     return (
-        <section>
-            <ProductFilter filter={filter} setFilter={setFilter}/>
-            <div className={classes.filter}>
-                <MyButton onClick={() => fetchDataFiltered(filter.sortType, filter.value)}>Отфильтровать</MyButton>
+        <section className={classes.container}>
+            {memoizedProductFilter}
+            <div className={classes.filterButton}>
+                {memoizedButton}
             </div>
-            <hr/>
             <div className={classes.gridLayout}>
-                {isProductsLoading
+                {isLoading
                   ? <h1>Идет загрузка...</h1>
                   : products.length ?
                     products.map((item, index) =>
@@ -118,13 +141,13 @@ const ProductList = () => {
             </div>
             <h1>Текущая страница: {currentPage}</h1>
 
-            {!isProductsLoading && !filter.sortType && (<>
+            {!isLoading && !filter.sortType && (<>
                 <div className={classes.buttonsPagination}>
                     <MyButton onClick={handlePrevPage} disabled={currentPage === 1}>Предыдущая страница</MyButton>
                     <MyButton onClick={handleNextPage}>Следующая страница</MyButton>
                 </div>
                 <form>
-                    <input
+                    <MyInput
                       type="text"
                       placeholder='Введите нужную страницу'
                       onChange={handleChange}
